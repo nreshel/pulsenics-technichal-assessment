@@ -7,7 +7,7 @@ This is a simple web application allowing you to input X and Y points, choose a 
 ## How to Run
 
 1. **Running the project:**
-   ```dotnet run
+   dotnet run
 
 Technologies Used
 C#
