@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../buildMultiTargeting/pulsenics-technichal-assessent.props" />
+</Project>

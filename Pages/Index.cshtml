@@ -1,0 +1,193 @@
+﻿@page
+@model PulsenicsApp.IndexModel
+@using Newtonsoft.Json
+
+<h1>Curve Fitting</h1>
+
+<!-- Form for collecting input points and selecting curve type -->
+<form method="post" asp-page-handler="ProcessPoints">
+  <label for="curveType">Select Curve Type:</label>
+  <select id="curveType" asp-for="CurveType">
+    <option value="linear">Linear</option>
+    <option value="quadratic">Quadratic</option>
+    <option value="cubic">Cubic</option>
+  </select>
+  <br />
+
+  <!-- Input fields for collecting points -->
+  @for (int i = 0; i < Model.Points.Count; i++)
+  {
+    <label for="pointX">Point @(i + 1) X:</label>
+    <input type="number" id="pointX" asp-for="Points[i].X" step="any" required />
+    <label for="pointY">Point @(i + 1) Y:</label>
+    <input type="number" id="pointY" asp-for="Points[i].Y" step="any" required />
+    <br />
+  }
+
+  <!-- Container for additional points added dynamically -->
+  <div id="additionalPoints"></div>
+  <!-- Button to add more points dynamically -->
+  <button type="button" onclick="addPoint()">Add Point</button>
+  <br />
+
+  <!-- Button to submit form -->
+  <button type="submit">Submit</button>
+</form>
+
+<!-- Display the results of the curve fitting -->
+<h2>Results:</h2>
+<p>Fitted Equation: @Model.FittedEquation</p>
+<p>Points: @JsonConvert.SerializeObject(Model.Points)</p>
+<p>Curve Type: @Model.CurveType</p>
+
+<!-- Chart.js script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+
+<!-- Chart container -->
+<canvas id="chart"></canvas>
+
+<!-- Section for scripts -->
+@section Scripts {
+  <script>
+    // Frontend logic for handling form submission and updating UI
+    // ...
+
+    // Function to add points dynamically
+    function addPoint() {
+      var index = @Model.Points.Count;
+      var html = `
+          <label for="pointX">Point ${index + 1} X:</label>
+          <input type="number" id="pointX" name="Points[${index}].X" step="any" required />
+          <label for="pointY">Point ${index + 1} Y:</label>
+          <input type="number" id="pointY" name="Points[${index}].Y" step="any" required />
+          <br />
+        `;
+      $("#additionalPoints").append(html);
+    }
+
+    // Execute when the document is ready
+    $(document).ready(function () {
+      // Submit form using AJAX to handle points processing
+      $("form").submit(function (e) {
+        e.preventDefault();
+
+        $.ajax({
+          url: $(this).attr("action"),
+          type: $(this).attr("method"),
+          data: $(this).serialize(),
+          success: function (result) {
+            console.log(result);
+            // Update UI with the result, including chart
+            updateChart(result);
+          },
+          error: function (error) {
+            console.log(error);
+            // Handle error
+            // ...
+          }
+        });
+      });
+
+      // Fetch and log data from the SQLite database on page load
+      $.ajax({
+        url: "/",
+        type: "GET",
+        success: function (result) {
+          console.log("Data from SQLite Database on Page Load:", result.points);
+        },
+        error: function (error) {
+          console.log(error);
+          // Handle error
+          // ...
+        }
+      });
+    });
+
+    // Function to generate points on the fitted curve
+    function generateFittedCurve(equation, xValues) {
+      // Parse the equation to get the coefficients
+      var regex = /([+-]?\d*\.?\d*)\*?x\^(\d+)/g;
+      var coefficients = [];
+      var match;
+      while ((match = regex.exec(equation)) !== null) {
+        coefficients.push({
+          coefficient: parseFloat(match[1]),
+          power: parseInt(match[2])
+        });
+      }
+
+      // Calculate y values for each x using the equation
+      var yValues = xValues.map(x => {
+        var y = 0;
+        coefficients.forEach(term => {
+          y += term.coefficient * Math.pow(x, term.power);
+        });
+        return y;
+      });
+
+      return yValues;
+    }
+
+    // Function to update the chart based on data
+    function updateChart(data) {
+      var ctx = document.getElementById('chart').getContext('2d');
+
+      // Clear existing chart
+      if (window.myChart) {
+        window.myChart.destroy();
+      }
+
+      // Check if 'points' property exists in data object
+      if (!data.points || data.points.length === 0) {
+        console.error('No data points available.');
+        return;
+      }
+
+      // Prepare data for the chart
+      var labels = data.points.map(point => point.x);
+      var values = data.points.map(point => point.y);
+
+      // Add fitted curve values if available
+      if (data.fittedEquation) {
+        var fittedCurve = generateFittedCurve(data.fittedEquation, labels);
+        values = values.concat(fittedCurve);
+      }
+
+      // Determine chart type based on curveType
+      var chartType = 'line';  // Default to line chart
+      if (data.curveType === 'quadratic' || data.curveType === 'cubic') {
+        chartType = 'scatter';  // Change to 'scatter' for quadratic or cubic curves
+      } else if (data.curveType === 'linear') {
+        chartType = 'line';  // Change to 'line' for linear curves
+      }
+
+      // Create a new chart
+      window.myChart = new Chart(ctx, {
+        type: chartType,
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Data Points',
+            data: values,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            borderWidth: 1,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+          }]
+        },
+        options: {
+          scales: {
+            x: {
+              type: 'linear',
+              position: 'bottom'
+            },
+            y: {
+              min: 0
+            }
+          }
+        }
+      });
+    }
+  </script>
+}
