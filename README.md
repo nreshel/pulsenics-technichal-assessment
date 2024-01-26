@@ -16,3 +16,5 @@ MathNet.Numerics
 SQLite
 
 Data stored in mydatabase.sqlite
+
+All code that has been made is in Pages/Index.cshtml.cs & Index.cshtml files
